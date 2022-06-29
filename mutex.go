@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"time"
 
 	"github.com/go-redsync/redsync/v4/redis"
@@ -63,6 +64,7 @@ func (m *Mutex) LockContext(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	fmt.Printf("%s: got value %s\n", time.Now().String(), value)
 
 	for i := 0; i < m.tries; i++ {
 		if i != 0 {
@@ -90,6 +92,7 @@ func (m *Mutex) LockContext(ctx context.Context) error {
 
 		now := time.Now()
 		until := now.Add(m.expiry - now.Sub(start) - time.Duration(int64(float64(m.expiry)*m.driftFactor)))
+		fmt.Printf("%s: checking value %d - %s => %s\n", time.Now().String(), n, now.String(), until.String())
 		if n >= m.quorum && now.Before(until) {
 			m.value = value
 			m.until = until
@@ -201,6 +204,7 @@ func (m *Mutex) acquire(ctx context.Context, pool redis.Pool, value string) (boo
 		return false, err
 	}
 	defer conn.Close()
+	fmt.Printf("%s: setting value %s => %s \n", time.Now().String(), m.name, value)
 	reply, err := conn.SetNX(m.name, value, m.expiry)
 	if err != nil {
 		return false, err
@@ -222,6 +226,7 @@ func (m *Mutex) release(ctx context.Context, pool redis.Pool, value string) (boo
 		return false, err
 	}
 	defer conn.Close()
+	fmt.Printf("%s: deleting value %s => %s \n", time.Now().String(), m.name, value)
 	status, err := conn.Eval(deleteScript, m.name, value)
 	if err != nil {
 		return false, err
